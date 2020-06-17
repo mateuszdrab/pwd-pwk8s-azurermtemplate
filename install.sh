@@ -29,7 +29,7 @@ cd play-with-docker
 # so that no network requests are required within the containers.
 # The module cache is retained in the pwd and l2 containers so the
 # download is a one-off if you omit this step.
-/.go/bin/go mod vendor
+bash -c '/.go/bin/go mod vendor'
 
 # Set correct branch
 if [ $1 == "k8s" ]; then
