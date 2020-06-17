@@ -14,7 +14,7 @@ The NSG created is open to the world, ensure to change the `sourceAddressPrefix`
 
 ### Deploy template
 
-`az group deployment create --resource-group pwd-pwk8s-azurermtemplate --template-file ./azuredeploy.json --parameters ./azuredeploy.parameters.json`
+`az deployment group create --resource-group pwd-pwk8s-azurermtemplate --template-file ./azuredeploy.json --parameters ./azuredeploy.parameters.json`
 
 ### Clean-up
 
