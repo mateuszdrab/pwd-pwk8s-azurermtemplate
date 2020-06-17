@@ -16,7 +16,9 @@ git clone https://github.com/mateuszdrab/play-with-docker.git
 cd play-with-docker
 
 # Set correct branch
-git checkout master
+if [ $1 != "docker" ]; then
+  git checkout -t "origin/$1"
+fi
 
 # Load the IPVS kernel module. Because swarms are created in dind,
 # the daemon won't load it automatically
