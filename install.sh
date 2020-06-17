@@ -32,7 +32,7 @@ cd play-with-docker
 # download is a one-off if you omit this step.
 GOCACHE=/tmp/gocache /.go/bin/go mod vendor
 
-# Set correct branch
+# Set correct web assets for K8s
 if [ $1 == "k8s" ]; then
   mv www/default www/docker
   mv www/k8s www/default
