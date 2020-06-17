@@ -9,6 +9,7 @@ ip_vs_rr
 ip_vs
 ip_vs_wrr
 xt_ipvs
+options nf_conntrack hashsize=65536
 EOF
 
 # Load and configure the kernel modules for real time
