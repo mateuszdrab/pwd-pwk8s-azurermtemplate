@@ -30,7 +30,7 @@ cd play-with-docker
 # so that no network requests are required within the containers.
 # The module cache is retained in the pwd and l2 containers so the
 # download is a one-off if you omit this step.
-GOCACHE=/tmp/gocache /.go/bin/go mod vendor
+GOCACHE=/tmp/gocache HOME=/root /.go/bin/go mod vendor
 
 # Set correct web assets for K8s
 if [ $1 == "k8s" ]; then
