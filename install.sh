@@ -1,9 +1,19 @@
 #!/bin/bash
 cd /root
 
-# Load the IPVS kernel module. Because swarms are created in dind,
-# the daemon won't load it automatically
-modprobe xt_ipvs
+#Add kernel modules to auto load
+cat <<-EOF >> /etc/modprobe.d/docker.conf
+nf_conntrack
+ip_vs_sh
+ip_vs_rr
+ip_vs
+ip_vs_wrr
+xt_ipvs
+EOF
+
+# Load and configure the kernel modules for real time
+modprobe nf_conntrack ip_vs_sh ip_vs_rr ip_vs ip_vs_wrr xt_ipvs
+echo 65536 > /sys/module/nf_conntrack/parameters/hashsize
 
 #Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
