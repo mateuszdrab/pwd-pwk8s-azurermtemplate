@@ -2,15 +2,16 @@
 cd /root
 
 #Add kernel modules to auto load
-cat <<-EOF >> /etc/modprobe.d/docker.conf
+cat <<-EOF >> /etc/modules
 nf_conntrack
 ip_vs_sh
 ip_vs_rr
 ip_vs
 ip_vs_wrr
 xt_ipvs
-options nf_conntrack hashsize=65536
 EOF
+
+echo options nf_conntrack hashsize=65536 > /etc/modprobe.d/nf_conntrack.conf
 
 # Load and configure the kernel modules for real time
 modprobe nf_conntrack ip_vs_sh ip_vs_rr ip_vs ip_vs_wrr xt_ipvs
