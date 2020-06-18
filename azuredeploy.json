@@ -1,0 +1,401 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "virtualMachineName": {
+            "type": "string",
+            "defaultValue": "Host"
+        },
+        "virtualMachineSize": {
+            "type": "string",
+            "defaultValue": "Standard_F2s_v2"
+        },
+        "adminUsername": {
+            "type": "string",
+            "defaultValue": "host-admin"
+        },
+        "networkInterfaceName": {
+            "type": "string",
+            "defaultValue": "VMNIC"
+        },
+        "diskSizeGB": {
+            "type": "string",
+            "defaultValue": "32"
+        },
+        "networkSecurityGroupName": {
+            "type": "string",
+            "defaultValue": "NSG"
+        },
+        "virtualNetworkName": {
+            "type": "string",
+            "defaultValue": "VNET"
+        },
+        "adminPublicKey": {
+            "type": "string"
+        },
+        "addressPrefix": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/24"
+        },
+        "subnetName": {
+            "type": "string",
+            "defaultValue": "default"
+        },
+        "subnetPrefix": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/24"
+        },
+        "publicIpAddressName": {
+            "type": "string",
+            "defaultValue": "VMPublicIP"
+        },
+        "publicIpAddressType": {
+            "type": "string",
+            "defaultValue": "Dynamic"
+        },
+        "publicIpAddressSku": {
+            "type": "string",
+            "defaultValue": "Basic"
+        },
+        "dnsZone": {
+            "type": "string"
+        },
+        "deploymentType": {
+            "type": "string",
+            "defaultValue": "docker",
+            "allowedValues": [
+                "docker",
+                "k8s"
+            ]
+        },
+        "sourceAddressPrefix": {
+            "type": "string",
+            "defaultValue": "*"
+        },
+        "storageAccountType": {
+            "type": "string",
+            "defaultValue": "Standard_LRS",
+            "allowedValues": [
+                "Standard_LRS",
+                "Standard_GRS",
+                "Standard_ZRS",
+                "Premium_LRS"
+            ]
+        }
+    },
+    "variables": {
+        "resourcePrefix": "host",
+        "dnsRecordName": "[concat(variables('resourcePrefix'), uniqueString(resourceGroup().id))]",
+        "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('subnetName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/dnsZones",
+            "apiVersion": "2018-05-01",
+            "name": "[parameters('dnsZone')]",
+            "location": "global",
+            "properties": {
+                "zoneType": "Public"
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/', parameters('virtualMachineName'))]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('dnsZone'), '/host')]",
+            "type": "Microsoft.Network/dnsZones/CNAME",
+            "apiVersion": "2018-05-01",
+            "properties": {
+                "TTL": 300,
+                "CNAMERecord": {
+                    "cname": "[reference(resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressName'))).dnsSettings.fqdn]"
+                }
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Network/dnsZones/', parameters('dnsZone'))]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('dnsZone'), '/direct.host')]",
+            "type": "Microsoft.Network/dnsZones/CNAME",
+            "apiVersion": "2018-05-01",
+            "properties": {
+                "TTL": 300,
+                "CNAMERecord": {
+                    "cname": "[reference(resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressName'))).dnsSettings.fqdn]"
+                }
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Network/dnsZones/', parameters('dnsZone'))]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('dnsZone'), '/*.direct.host')]",
+            "type": "Microsoft.Network/dnsZones/CNAME",
+            "apiVersion": "2018-05-01",
+            "properties": {
+                "TTL": 300,
+                "CNAMERecord": {
+                    "cname": "[reference(resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressName'))).dnsSettings.fqdn]"
+                }
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Network/dnsZones/', parameters('dnsZone'))]"
+            ]
+        },
+        {
+            "name": "[parameters('virtualMachineName')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2017-03-30",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/networkInterfaces/', parameters('networkInterfaceName'))]"
+            ],
+            "properties": {
+                "osProfile": {
+                    "computerName": "[parameters('virtualMachineName')]",
+                    "adminUsername": "[parameters('adminUsername')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": "true",
+                        "ssh": {
+                            "publicKeys": [
+                                {
+                                    "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
+                                    "keyData": "[parameters('adminPublicKey')]"
+                                }
+                            ]
+                        }
+                    }
+                },
+                "hardwareProfile": {
+                    "vmSize": "[parameters('virtualMachineSize')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "createOption": "fromImage",
+                        "diskSizeGB": "[parameters('diskSizeGB')]",
+                        "managedDisk": {
+                            "storageAccountType": "[parameters('storageAccountType')]"
+                        }
+                    },
+                    "dataDisks": [
+                    ]
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaceName'))]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": false
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "[concat(parameters('virtualMachineName'),'/installcustomscript')]",
+            "apiVersion": "2017-03-30",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/', parameters('virtualMachineName'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": [
+                        "https://raw.githubusercontent.com/mateuszdrab/pwd-pwk8s-azurermtemplate/master/install.sh"
+                    ],
+                    "commandToExecute": "[concat('/bin/bash install.sh ', parameters('deploymentType'))]"
+                }
+            }
+        },
+        {
+            "name": "[parameters('virtualNetworkName')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2017-10-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('addressPrefix')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('subnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('subnetPrefix')]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[parameters('networkInterfaceName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2017-10-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'))]",
+                "[concat('Microsoft.Network/publicIpAddresses/', parameters('publicIpAddressName'))]",
+                "[concat('Microsoft.Network/networkSecurityGroups/', parameters('networkSecurityGroupName'))]"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "subnet": {
+                                "id": "[variables('subnetRef')]"
+                            },
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIpAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIpAddresses', parameters('publicIpAddressName'))]"
+                            }
+                        }
+                    }
+                ],
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupName'))]"
+                }
+            }
+        },
+        {
+            "name": "[parameters('publicIpAddressName')]",
+            "type": "Microsoft.Network/publicIpAddresses",
+            "apiVersion": "2017-10-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIpAllocationMethod": "[parameters('publicIpAddressType')]",
+                "dnsSettings": {
+                    "domainNameLabel": "[variables('dnsRecordName')]"
+                }
+            },
+            "sku": {
+                "name": "[parameters('publicIpAddressSku')]"
+            }
+        },
+        {
+            "name": "[parameters('networkSecurityGroupName')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2017-10-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "SSH",
+                        "properties": {
+                            "priority": 300,
+                            "protocol": "TCP",
+                            "access": "Allow",
+                            "direction": "Inbound",
+                            "sourceApplicationSecurityGroups": [
+                            ],
+                            "destinationApplicationSecurityGroups": [
+                            ],
+                            "sourceAddressPrefix": "[parameters('sourceAddressPrefix')]",
+                            "sourcePortRange": "*",
+                            "destinationAddressPrefix": "*",
+                            "destinationPortRange": "22"
+                        }
+                    },
+                    {
+                        "name": "SSH_PWD",
+                        "properties": {
+                            "priority": 310,
+                            "protocol": "TCP",
+                            "access": "Allow",
+                            "direction": "Inbound",
+                            "sourceApplicationSecurityGroups": [
+                            ],
+                            "destinationApplicationSecurityGroups": [
+                            ],
+                            "sourceAddressPrefix": "[parameters('sourceAddressPrefix')]",
+                            "sourcePortRange": "*",
+                            "destinationAddressPrefix": "*",
+                            "destinationPortRange": "8022"
+                        }
+                    },
+                    {
+                        "name": "Grafana",
+                        "properties": {
+                            "priority": 330,
+                            "protocol": "TCP",
+                            "access": "Allow",
+                            "direction": "Inbound",
+                            "sourceApplicationSecurityGroups": [
+                            ],
+                            "destinationApplicationSecurityGroups": [
+                            ],
+                            "sourceAddressPrefix": "[parameters('sourceAddressPrefix')]",
+                            "sourcePortRange": "*",
+                            "destinationAddressPrefix": "*",
+                            "destinationPortRange": "3000"
+                        }
+                    },
+                    {
+                        "name": "HTTP",
+                        "properties": {
+                            "priority": 320,
+                            "protocol": "TCP",
+                            "access": "Allow",
+                            "direction": "Inbound",
+                            "sourceApplicationSecurityGroups": [
+                            ],
+                            "destinationApplicationSecurityGroups": [
+                            ],
+                            "sourceAddressPrefix": "[parameters('sourceAddressPrefix')]",
+                            "sourcePortRange": "*",
+                            "destinationAddressPrefix": "*",
+                            "destinationPortRange": "80"
+                        }
+                    },
+                    {
+                        "name": "HTTPS",
+                        "properties": {
+                            "priority": 340,
+                            "protocol": "TCP",
+                            "access": "Allow",
+                            "direction": "Inbound",
+                            "sourceApplicationSecurityGroups": [
+                            ],
+                            "destinationApplicationSecurityGroups": [
+                            ],
+                            "sourceAddressPrefix": "[parameters('sourceAddressPrefix')]",
+                            "sourcePortRange": "*",
+                            "destinationAddressPrefix": "*",
+                            "destinationPortRange": "443"
+                        }
+                    }
+                ]
+            }
+        }
+    ],
+    "outputs": {
+        "adminUsername": {
+            "type": "string",
+            "value": "[parameters('adminUsername')]"
+        },
+        "connectUrl": {
+            "type": "string",
+            "value": "[concat('http://host.', parameters('dnsZone'))]"
+        },
+        "nameServers": {
+            "type": "array",
+            "value": "[reference(parameters('dnsZone')).nameServers]"
+        }
+    }
+}

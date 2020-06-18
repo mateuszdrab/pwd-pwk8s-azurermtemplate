@@ -22,11 +22,11 @@ Update the `adminPublicKey` parameter to your own SSH key and update the dnsZone
 
 ### Delegate your DNS
 
-You need to set up DNS delegation so that you can resolve the DNS zone specified in the `dnsZone` parameter
+After running the deployment, you need to set up DNS delegation so that you can resolve the DNS zone specified in the `dnsZone` parameter to the nameservers returned in `nameServers` 
 
 ### Access the environment
 
-Access the environment using `http://host.{dnsZone}` refers to the child dns zone mentioned earlier
+Access the environment using the url returned by the deployment under `connectUrl`
 
 ### Clean-up
 
